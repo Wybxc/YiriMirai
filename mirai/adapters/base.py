@@ -57,9 +57,10 @@ class AdapterInterface(abc.ABC):
 
     @classmethod
     def __subclasshook__(cls, C):
-        if cls is AdapterInterface:
-            if any("adapter_info" in B.__dict__ for B in C.__mro__):
-                return True
+        if cls is AdapterInterface and any(
+            "adapter_info" in B.__dict__ for B in C.__mro__
+        ):
+            return True
         return NotImplemented
 
 

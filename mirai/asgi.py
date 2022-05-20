@@ -156,7 +156,7 @@ class ASGI(Singleton):
             ASGI: 返回自身。
         """
         if not path.startswith('/'):
-            path = '/' + path
+            path = f'/{path}'
         self.app.mount(path, app)
         logger.debug(f'向 {path} 挂载 {app}。')
         return self
@@ -195,9 +195,9 @@ def asgi_serve(
                 asgi = 'none'
     else:
         asgi = asgi_server
-        if asgi_server == 'uvicorn':
+        if asgi == 'uvicorn':
             from uvicorn import run
-        elif asgi_server == 'hypercorn':
+        elif asgi == 'hypercorn':
             import hypercorn.config as config
             from hypercorn.asyncio import serve
 

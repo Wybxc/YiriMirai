@@ -14,7 +14,7 @@ class MiraiMetaclass(pdm.ModelMetaclass):
 
 def to_camel(name: str) -> str:
     """将下划线命名风格转换为小驼峰命名。"""
-    if name[:2] == '__':  # 不处理双下划线开头的特殊命名。
+    if name.startswith('__'):  # 不处理双下划线开头的特殊命名。
         return name
     name_parts = name.split('_')
     return ''.join(name_parts[:1] + [x.title() for x in name_parts[1:]])
@@ -33,8 +33,9 @@ class MiraiBaseModel(BaseModel, metaclass=MiraiMetaclass):
         super().__init__(*args, **kwargs)
 
     def __repr__(self) -> str:
-        return self.__class__.__name__ + '(' + ', '.join(
-            (f'{k}={repr(v)}' for k, v in self.__dict__.items() if v)
+        return (
+            f'{self.__class__.__name__}('
+            + ', '.join((f'{k}={repr(v)}' for k, v in self.__dict__.items() if v))
         ) + ')'
 
     class Config:
@@ -66,8 +67,8 @@ class MiraiIndexedMetaclass(MiraiMetaclass):
                 base.__indexes__[name] = new_cls
                 return new_cls
 
-    def __getitem__(cls, name):
-        return cls.get_subtype(name)
+    def __getitem__(self, name):
+        return self.get_subtype(name)
 
 
 class MiraiIndexedModel(MiraiBaseModel, metaclass=MiraiIndexedMetaclass):

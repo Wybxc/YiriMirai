@@ -64,16 +64,14 @@ class HTTPAdapter(Adapter):
         self._host = host
         self._port = port
 
-        if host[:2] == '//':
-            host = 'http:' + host
-        elif host[:8] == 'https://':
+        if host.startswith('//'):
+            host = f'http:{host}'
+        elif host.startswith('https://'):
             raise exceptions.NetworkError('不支持 HTTPS！')
         elif host[:7] != 'http://':
-            host = 'http://' + host
+            host = f'http://{host}'
 
-        if host[-1:] == '/':
-            host = host[:-1]
-
+        host = host.removesuffix('/')
         self.host_name = f'{host}:{port}'
 
         self.poll_interval = poll_interval
@@ -190,17 +188,16 @@ class HTTPAdapter(Adapter):
 
     @_error_handler_async_local
     async def logout(self, terminate: bool = True):
-        if self.session and not self.single_mode:
-            if terminate:
-                async with httpx.AsyncClient(
-                    base_url=self.host_name, headers=self.headers
-                ) as client:
-                    await self._post(
-                        client, '/release', {
-                            "sessionKey": self.session,
-                            "qq": self.qq,
-                        }
-                    )
+        if self.session and not self.single_mode and terminate:
+            async with httpx.AsyncClient(
+                base_url=self.host_name, headers=self.headers
+            ) as client:
+                await self._post(
+                    client, '/release', {
+                        "sessionKey": self.session,
+                        "qq": self.qq,
+                    }
+                )
         logger.info(f"[HTTP] 从账号{self.qq}退出。")
 
     async def poll_event(self):
@@ -223,11 +220,11 @@ class HTTPAdapter(Adapter):
                        method: Method = Method.GET,
                        **params) -> Optional[dict]:
         async with httpx.AsyncClient(
-            base_url=self.host_name, headers=self.headers
-        ) as client:
-            if method == Method.GET or method == Method.RESTGET:
+                base_url=self.host_name, headers=self.headers
+            ) as client:
+            if method in [Method.GET, Method.RESTGET]:
                 return await self._get(client, f'/{api}', params)
-            if method == Method.POST or method == Method.RESTPOST:
+            if method in [Method.POST, Method.RESTPOST]:
                 return await self._post(client, f'/{api}', params)
             if method == Method.MULTIPART:
                 return await self._post_multipart(
