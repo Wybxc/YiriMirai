@@ -30,10 +30,14 @@ class Event(MiraiIndexedModel):
     type: str
     """事件名。"""
     def __repr__(self):
-        return self.__class__.__name__ + '(' + ', '.join(
-            (
-                f'{k}={repr(v)}'
-                for k, v in self.__dict__.items() if k != 'type' and v
+        return (
+            f'{self.__class__.__name__}('
+            + ', '.join(
+                (
+                    f'{k}={repr(v)}'
+                    for k, v in self.__dict__.items()
+                    if k != 'type' and v
+                )
             )
         ) + ')'
 
@@ -202,9 +206,9 @@ class GroupEvent(Event):
     """事件名。"""
     def __getattr__(self, name) -> Union[Group, Any]:
         if name == 'group':
-            member = getattr(self, 'operator',
-                             None) or getattr(self, 'member', None)
-            if member:
+            if member := getattr(self, 'operator', None) or getattr(
+                self, 'member', None
+            ):
                 return member.group
         return getattr(super(), name)
 

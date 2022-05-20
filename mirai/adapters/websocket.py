@@ -66,16 +66,14 @@ class WebSocketAdapter(Adapter):
         self._host = host
         self._port = port
 
-        if host[:2] == '//':
-            host = 'ws:' + host
-        elif host[:7] == 'http://' or host[:8] == 'https://':
+        if host.startswith('//'):
+            host = f'ws:{host}'
+        elif host.startswith('http://') or host.startswith('https://'):
             raise exceptions.NetworkError(f'{host} 不是一个可用的 WebSocket 地址！')
         elif host[:5] != 'ws://':
-            host = 'ws://' + host
+            host = f'ws://{host}'
 
-        if host[-1:] == '/':
-            host = host[:-1]
-
+        host = host.removesuffix('/')
         self.host_name = f'{host}:{port}/all'
 
         self.sync_id = sync_id  # 这个神奇的 sync_id，默认值 -1，居然是个字符串

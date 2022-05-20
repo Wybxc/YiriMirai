@@ -561,10 +561,8 @@ class SendMessage(ApiBaseModel):
     # message_chain: TMessage
 
     @validator('message_chain', check_fields=False)
-    def _validate_message_chain(cls, value: Union[MessageChain, list]):
-        if isinstance(value, list):
-            return MessageChain.parse_obj(value)
-        return value
+    def _validate_message_chain(self, value: Union[MessageChain, list]):
+        return MessageChain.parse_obj(value) if isinstance(value, list) else value
 
 
 class SendFriendMessage(ApiPost, SendMessage):
@@ -1018,7 +1016,7 @@ class RespNewFriendRequestEvent(ApiPost, RespEvent):
     message: str
     """回复的信息。"""
     @validator('operate')
-    def _validate_operate(cls, v):
+    def _validate_operate(self, v):
         if isinstance(v, RespOperate):
             if v == RespOperate.ALLOW:
                 return 0
@@ -1048,7 +1046,7 @@ class RespMemberJoinRequestEvent(ApiPost, RespEvent):
     message: str
     """回复的信息。"""
     @validator('operate')
-    def _validate_operate(cls, v):
+    def _validate_operate(self, v):
         if isinstance(v, RespOperate):
             if v == RespOperate.ALLOW:
                 return 0
@@ -1082,7 +1080,7 @@ class RespBotInvitedJoinGroupRequestEvent(ApiPost, RespEvent):
     message: str
     """回复的信息。"""
     @validator('operate')
-    def _validate_operate(cls, v):
+    def _validate_operate(self, v):
         if isinstance(v, RespOperate):
             if v == RespOperate.ALLOW:
                 return 0
@@ -1102,10 +1100,8 @@ class CmdExecute(ApiPost):
     command: Union[MessageChain, Iterable[Union[MessageComponent, str]], str]
     """命令。"""
     @validator('command')
-    def _validate_command(cls, value):
-        if isinstance(value, list):
-            return MessageChain.parse_obj(value)
-        return value
+    def _validate_command(self, value):
+        return MessageChain.parse_obj(value) if isinstance(value, list) else value
 
     class Info(ApiPost.Info):
         name = "cmd/execute"

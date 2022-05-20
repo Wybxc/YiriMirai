@@ -88,10 +88,14 @@ class MessageComponent(MiraiIndexedModel, metaclass=MessageComponentMetaclass):
         return ''
 
     def __repr__(self):
-        return self.__class__.__name__ + '(' + ', '.join(
-            (
-                f'{k}={repr(v)}'
-                for k, v in self.__dict__.items() if k != 'type' and v
+        return (
+            f'{self.__class__.__name__}('
+            + ', '.join(
+                (
+                    f'{k}={repr(v)}'
+                    for k, v in self.__dict__.items()
+                    if k != 'type' and v
+                )
             )
         ) + ')'
 
@@ -275,12 +279,12 @@ class MessageChain(MiraiBaseModel):
         return result
 
     @validator('__root__', always=True, pre=True)
-    def _parse_component(cls, msg_chain):
+    def _parse_component(self, msg_chain):
         if isinstance(msg_chain, (str, MessageComponent)):
             msg_chain = [msg_chain]
         if not msg_chain:
             msg_chain = []
-        return cls._parse_message_chain(msg_chain)
+        return self._parse_message_chain(msg_chain)
 
     @classmethod
     def parse_obj(cls, msg_chain: Iterable):
@@ -387,10 +391,9 @@ class MessageChain(MiraiBaseModel):
     def get_first(self,
                   t: Type[TMessageComponent]) -> Optional[TMessageComponent]:
         """获取消息链中第一个符合类型的消息组件。"""
-        for component in self:
-            if isinstance(component, t):
-                return component
-        return None
+        return next(
+            (component for component in self if isinstance(component, t)), None
+        )
 
     @overload
     def __getitem__(self, index: int) -> MessageComponent:
@@ -456,15 +459,9 @@ class MessageChain(MiraiBaseModel):
             bool: 是否找到。
         """
         if isinstance(sub, type):  # 检测消息链中是否有某种类型的对象
-            for i in self:
-                if type(i) is sub:
-                    return True
-            return False
+            return any(type(i) is sub for i in self)
         if isinstance(sub, MessageComponent):  # 检查消息链中是否有某个组件
-            for i in self:
-                if i == sub:
-                    return True
-            return False
+            return any(i == sub for i in self)
         if isinstance(sub, MessageChain):  # 检查消息链中是否有某个子消息链
             return bool(kmp(self, sub))
         if isinstance(sub, str):  # 检查消息中有无指定字符串子串
@@ -541,12 +538,10 @@ class MessageChain(MiraiBaseModel):
             l = len(self)
             if i < 0:
                 i += l
-            if i < 0:
-                i = 0
+            i = max(i, 0)
             if j < 0:
                 j += l
-            if j > l:
-                j = l
+            j = min(j, l)
             for index in range(i, j):
                 if type(self[index]) is x:
                     return index
@@ -566,7 +561,7 @@ class MessageChain(MiraiBaseModel):
             int: 次数。
         """
         if isinstance(x, type):
-            return sum(1 for i in self if type(i) is x)
+            return sum(type(i) is x for i in self)
         if isinstance(x, MessageComponent):
             return self.__root__.count(x)
         raise TypeError(f"类型不匹配，当前类型：{type(x)}")
@@ -712,7 +707,7 @@ class Quote(MessageComponent):
     origin: MessageChain
     """被引用回复的原消息的消息链对象。"""
     @validator("origin", always=True, pre=True)
-    def origin_formater(cls, v):
+    def origin_formater(self, v):
         return MessageChain.parse_obj(v)
 
 
@@ -742,7 +737,7 @@ class AtAll(MessageComponent):
         return "@全体成员"
 
     def as_mirai_code(self) -> str:
-        return f"[mirai:atall]"
+        return "[mirai:atall]"
 
 
 class Face(MessageComponent):
@@ -767,9 +762,7 @@ class Face(MessageComponent):
             (self.face_id == other.face_id or self.name == other.name)
 
     def __str__(self):
-        if self.name:
-            return f'[{self.name}]'
-        return '[表情]'
+        return f'[{self.name}]' if self.name else '[表情]'
 
     def as_mirai_code(self):
         return f"[mirai:face:{self.face_id}]"
@@ -799,15 +792,14 @@ class Image(MessageComponent):
         return f"[mirai:image:{self.image_id}]"
 
     @validator('path')
-    def validate_path(cls, path: Union[str, Path, None]):
+    def validate_path(self, path: Union[str, Path, None]):
         """修复 path 参数的行为，使之相对于 YiriMirai 的启动路径。"""
-        if path:
-            try:
-                return str(Path(path).resolve(strict=True))
-            except FileNotFoundError:
-                raise ValueError(f"无效路径：{path}")
-        else:
+        if not path:
             return path
+        try:
+            return str(Path(path).resolve(strict=True))
+        except FileNotFoundError:
+            raise ValueError(f"无效路径：{path}")
 
     @property
     def uuid(self):
@@ -859,9 +851,7 @@ class Image(MessageComponent):
                 path = Path(filename)
                 if determine_type:
                     import imghdr
-                    path = path.with_suffix(
-                        '.' + str(imghdr.what(None, content))
-                    )
+                    path = path.with_suffix(f'.{str(imghdr.what(None, content))}')
                 path.parent.mkdir(parents=True, exist_ok=True)
             elif directory:
                 import imghdr
@@ -902,8 +892,7 @@ class Image(MessageComponent):
         else:
             raise ValueError("请指定图片路径或图片内容！")
         import base64
-        img = cls(base64=base64.b64encode(content).decode())
-        return img
+        return cls(base64=base64.b64encode(content).decode())
 
     @classmethod
     def from_unsafe_path(cls, path: Union[str, Path]) -> "Image":
@@ -1100,15 +1089,14 @@ class Voice(MessageComponent):
     length: Optional[int] = None
     """语音的长度，单位为秒。"""
     @validator('path')
-    def validate_path(cls, path: Optional[str]):
+    def validate_path(self, path: Optional[str]):
         """修复 path 参数的行为，使之相对于 YiriMirai 的启动路径。"""
-        if path:
-            try:
-                return str(Path(path).resolve(strict=True))
-            except FileNotFoundError:
-                raise ValueError(f"无效路径：{path}")
-        else:
+        if not path:
             return path
+        try:
+            return str(Path(path).resolve(strict=True))
+        except FileNotFoundError:
+            raise ValueError(f"无效路径：{path}")
 
     def __str__(self):
         return '[语音]'
@@ -1162,8 +1150,6 @@ class Voice(MessageComponent):
             filename: 从本地文件路径加载语音，与 `content` 二选一。
             content: 从本地文件内容加载语音，与 `filename` 二选一。
         """
-        if content:
-            pass
         if filename:
             path = Path(filename)
             import aiofiles
@@ -1172,8 +1158,7 @@ class Voice(MessageComponent):
         else:
             raise ValueError("请指定语音路径或语音内容！")
         import base64
-        img = cls(base64=base64.b64encode(content).decode())
-        return img
+        return cls(base64=base64.b64encode(content).decode())
 
 
 class Dice(MessageComponent):
@@ -1233,10 +1218,8 @@ class ForwardMessageNode(MiraiBaseModel):
     time: Optional[datetime] = None
     """发送时间。"""
     @validator('message_chain', check_fields=False)
-    def _validate_message_chain(cls, value: Union[MessageChain, list]):
-        if isinstance(value, list):
-            return MessageChain.parse_obj(value)
-        return value
+    def _validate_message_chain(self, value: Union[MessageChain, list]):
+        return MessageChain.parse_obj(value) if isinstance(value, list) else value
 
     @classmethod
     def create(
